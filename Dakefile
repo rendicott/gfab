@@ -21,7 +21,7 @@ pr: deps testlite configure build-linux build-mac build-windows
 
 nonpr: build
 
-build: deps testlite configure build-linux build-mac build-windows rpm deb postreqs
+build: deps testlite configure build-linux build-mac build-windows rpmservice debservice postreqs
 
 bareback: deps configure build-linux build-mac build-windows
 
@@ -63,6 +63,20 @@ rpm:
 
 deb:
 	@cd $(build_dir_linux) && fpm -s dir -t deb -n $(productName) -v $(version) -p $(build_dir) --deb-no-default-config-files --prefix /usr/bin $(productName)
+
+rpmservice:
+	@cd $(build_dir_linux) && \
+		fpm \
+		-s pleaserun \
+		--pre-install ./packaging/centos7-preinstall.sh
+		-t rpm \
+		-n $(productName) \
+		-v $(version) \
+		-p $(build_dir) \
+		/usr/bin/$(productName)
+
+debservice:
+	@cd $(build_dir_linux) && fpm -s pleaserun -t deb -n $(productName) -v $(version) -p $(build_dir) --deb-no-default-config-files /usr/bin/$(productName)
 
 postreqs:
 	# make sure all output can be modified by host

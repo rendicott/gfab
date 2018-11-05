@@ -16,20 +16,22 @@ runbuild:
 	docker run -v $(shareDir):$(containerPath) -e BUILD_DIR="$(containerPath)" -it $(projectName) make build 
 
 testrpm:
+	docker build ./testing/centos7 -t $(projectName)-centos7
 	docker run \
 		-v $(shareDir):$(containerPath) \
 		-v $(testscripts_centos7):$(containerPathScripts) \
 		-e INSTALL_FILE_PREFIX="$(containerPath)" \
 		-e INSTALL_FILE="$(installfile_rpm)" \
-		-t centos:7 $(containerPathScripts)/test.sh 
+		-t $(projectName)-centos7 $(containerPathScripts)/test.sh 
 	
 testrpm_debug:
+	docker build ./testing/centos7 -t $(projectName)-centos7
 	docker run \
 		-v $(shareDir):$(containerPath) \
 		-v $(testscripts_centos7):$(containerPathScripts) \
 		-e INSTALL_FILE_PREFIX="$(containerPath)" \
 		-e INSTALL_FILE="$(installfile_rpm)" \
-		-it centos:7 /bin/bash
+		-it $(projectName)-centos7 /bin/bash
 
 	
 debug: prereq buildcontainer
