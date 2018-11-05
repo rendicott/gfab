@@ -1,0 +1,76 @@
+versionMaj := 0
+versionMin := 1
+versionPatch := 1
+version := $(versionMaj).$(versionMin).$(versionPatch)
+# version := $(TRAVIS_TAG).$(TRAVIS_BUILD_NUMBER)
+
+productName = gfab
+githubOrg = rendicott
+
+packageNameNix := $(productName)-linux-amd64-$(version).tar.gz
+packageNameMac := $(productName)-darwin-amd64-$(version).tar.gz
+packageNameWindows := $(productName)-windows-amd64-$(version).tar.gz
+
+build_dir := $(BUILD_DIR)
+build_dir_linux := output-linux
+build_dir_mac := output-mac
+build_dir_windows := output-windows
+
+# Can't use Travis secrets in pull request builds
+pr: deps testlite configure build-linux build-mac build-windows
+
+nonpr: build
+
+build: deps testlite configure build-linux build-mac build-windows rpm deb postreqs
+
+bareback: deps configure build-linux build-mac build-windows
+
+deps:
+	go get -t ./...
+
+testlite:
+	go get golang.org/x/tools/cmd/cover
+	go get github.com/mattn/goveralls
+	go get github.com/sozorogami/gover
+	
+	go test -v github.com/$(githubOrg)/$(productName) -covermode=count -coverprofile=$(productName).coverprofile
+	$(GOPATH)/bin/gover
+
+testfull: testlite
+	$(GOPATH)/bin/goveralls -coverprofile gover.coverprofile -service=travis-ci -repotoken $(COVERALLS_TOKEN) 
+
+configure:
+	mkdir $(build_dir_linux)
+	mkdir $(build_dir_mac)
+	mkdir $(build_dir_windows)
+
+
+build-linux:
+	env GOOS=linux GOARCH=amd64 go build -o $(build_dir_linux)/$(productName) -ldflags "-X main.version=$(version)"
+	@cd $(build_dir_linux) && tar zcf $(build_dir)/$(packageNameNix) . 
+
+build-mac:
+	env GOOS=darwin GOARCH=amd64 go build -o $(build_dir_mac)/$(productName) -ldflags "-X main.version=$(version)"
+	@cd $(build_dir_mac) && tar zcf $(build_dir)/$(packageNameMac) . 
+
+build-windows:
+	env GOOS=windows GOARCH=amd64 go build -o $(build_dir_windows)/$(productName).exe -ldflags "-X main.version=$(version)"
+	@cd $(build_dir_windows) && tar zcf $(build_dir)/$(packageNameWindows) . 
+
+# rpm and deb steps requires FPM to be installed
+rpm:
+	@cd $(build_dir_linux) && fpm -s dir -t rpm -n $(productName) -v $(version) -p $(build_dir) --prefix /usr/bin $(productName)
+
+deb:
+	@cd $(build_dir_linux) && fpm -s dir -t deb -n $(productName) -v $(version) -p $(build_dir) --deb-no-default-config-files --prefix /usr/bin $(productName)
+
+postreqs:
+	# make sure all output can be modified by host
+	chmod -R 777 $(build_dir)
+
+clean:
+	rm -f *.coverprofile
+	rm -rf $(build_dir)
+	rm -rf $(build_dir_linux)
+	rm -rf $(build_dir_mac)
+	rm -rf $(build_dir_windows)	
